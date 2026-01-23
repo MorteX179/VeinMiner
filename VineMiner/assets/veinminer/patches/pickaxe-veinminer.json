@@ -1,0 +1,10 @@
+[
+  {
+    "file": "game:itemtypes/tool/pickaxe.json",
+    "op": "add",
+    "path": "/behaviors/-",
+    "value": {
+      "name": "VeinMinerPickaxeBehavior"
+    }
+  }
+]
