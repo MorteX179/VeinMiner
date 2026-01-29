@@ -7,7 +7,7 @@ using Vintagestory.API.Config;
 
 public class VeinMinerPickaxeBehavior : CollectibleBehavior
 {
-    private const int MaxBlocks = 128;
+    private const int MaxBlocks = 4;
 
     public VeinMinerPickaxeBehavior(CollectibleObject collObj) : base(collObj) { }
 
@@ -50,14 +50,18 @@ public class VeinMinerPickaxeBehavior : CollectibleBehavior
 
         bhHandling = EnumHandling.PreventDefault;
 
-        int mined = MineOre(world, blockSel.Position, startBlock, player, skipFirstBlock: true);
+        int mined = MineOre(world, blockSel.Position, startBlock, player, skipFirstBlock: false);
 
-        if (mined > 0)
+        if (mined == 0)
         {
-            itemslot.Itemstack.Collectible.DamageItem(world, byEntity, itemslot, mined + 1);    // this stupid durability took me too much time to make it work at least
+            return true;
         }
 
-        return true;
+        bhHandling = EnumHandling.PreventDefault;
+
+        itemslot.Itemstack.Collectible.DamageItem(world, byEntity, itemslot, mined);
+
+        return false;
     }
 
 
@@ -77,7 +81,7 @@ public class VeinMinerPickaxeBehavior : CollectibleBehavior
         queue.Enqueue(startPos);
         bool first = true;
 
-        while (queue.Count > 0 && visited.Count < MaxBlocks)
+        while (queue.Count > 0 && toBreak.Count < VeinMinerModSystem.Config.MaxBlocks)
         {
             BlockPos pos = queue.Dequeue();
             if (!visited.Add(pos)) continue;
@@ -98,13 +102,6 @@ public class VeinMinerPickaxeBehavior : CollectibleBehavior
                 {
                     queue.Enqueue(n);
                 }
-            }
-
-            BlockPos abovePos = pos.AddCopy(0, 1, 0);
-            Block aboveBlock = world.BlockAccessor.GetBlock(abovePos);
-            if (aboveBlock != null && aboveBlock.Code == startBlock.Code && !visited.Contains(abovePos))
-            {
-                queue.Enqueue(abovePos);
             }
         }
 

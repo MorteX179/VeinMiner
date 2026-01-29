@@ -1,8 +1,6 @@
 {
   "name": "VeinMiner",
-  "version": "1.0.0",
-  "author": "MorteX",
+  "version": "1.0.2",
   "description": "Just Vein Miner",
-  "type": "code",
-  "modid": "VeinMiner"
+  "type": "code"
 }
