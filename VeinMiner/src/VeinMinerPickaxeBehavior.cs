@@ -7,27 +7,26 @@ using Vintagestory.API.Config;
 
 public class VeinMinerPickaxeBehavior : CollectibleBehavior
 {
-    private const int MaxBlocks = 4;
-
     public VeinMinerPickaxeBehavior(CollectibleObject collObj) : base(collObj) { }
 
     public override bool OnBlockBrokenWith
-        (
-            IWorldAccessor world,
-            Entity byEntity,
-            ItemSlot itemslot,
-            BlockSelection blockSel,
-            float dropQuantityMultiplier,
-            ref EnumHandling bhHandling
-        )
+    (
+        IWorldAccessor world,
+        Entity byEntity,
+        ItemSlot itemslot,
+        BlockSelection blockSel,
+        float dropQuantityMultiplier,
+        ref EnumHandling bhHandling
+    )
     {
         if (world.Side != EnumAppSide.Server) return false;
         if (blockSel == null) return false;
-
         if (byEntity is not EntityPlayer ep) return false;
+
         IServerPlayer player = ep.Player as IServerPlayer;
         if (player == null) return false;
 
+        // Toggle veinminer sneakiem
         if (ep.Controls.Sneak)
         {
             bool enabled = IsVeinMinerEnabled(itemslot);
@@ -36,7 +35,7 @@ public class VeinMinerPickaxeBehavior : CollectibleBehavior
             player.SendMessage(
                 GlobalConstants.GeneralChatGroup,
                 Lang.Get(enabled ? "veinminer:off" : "veinminer:on"),
-                EnumChatType.Notification
+                               EnumChatType.Notification
             );
 
             bhHandling = EnumHandling.PreventDefault;
@@ -50,72 +49,60 @@ public class VeinMinerPickaxeBehavior : CollectibleBehavior
 
         bhHandling = EnumHandling.PreventDefault;
 
-        int mined = MineOre(world, blockSel.Position, startBlock, player, skipFirstBlock: false);
+        int mined = MineOre(world, blockSel.Position, startBlock, player);
 
-        if (mined == 0)
+        if (mined > 0)
         {
-            return true;
+            itemslot.Itemstack.Collectible.DamageItem(world, byEntity, itemslot, mined);
         }
 
-        bhHandling = EnumHandling.PreventDefault;
-
-        itemslot.Itemstack.Collectible.DamageItem(world, byEntity, itemslot, mined);
-
-        return false;
+        return true;
     }
 
-
     private int MineOre
-        (
+    (
         IWorldAccessor world,
         BlockPos startPos,
         Block startBlock,
-        IServerPlayer player,
-        bool skipFirstBlock = false
-        )
+        IServerPlayer player
+    )
     {
         HashSet<BlockPos> visited = new();
         Queue<BlockPos> queue = new();
-        List<BlockPos> toBreak = new();
 
+        int brokenCount = 0;
+        int maxBlocks = VeinMinerModSystem.Config.MaxBlocks;
+
+        visited.Add(startPos);
         queue.Enqueue(startPos);
-        bool first = true;
 
-        while (queue.Count > 0 && toBreak.Count < VeinMinerModSystem.Config.MaxBlocks)
+        while (queue.Count > 0 && brokenCount < maxBlocks)
         {
             BlockPos pos = queue.Dequeue();
-            if (!visited.Add(pos)) continue;
 
             Block block = world.BlockAccessor.GetBlock(pos);
-            if (block == null || block.Code != startBlock.Code) continue;
-
-            if (!(first && skipFirstBlock))
-            {
-                toBreak.Add(pos);
-            }
-
-            first = false;
+            if (block == null || block.Code != startBlock.Code)
+                continue;
 
             foreach (BlockPos n in GetNeighbors(pos))
             {
-                if (!visited.Contains(n))
+                if (visited.Add(n))
                 {
                     queue.Enqueue(n);
                 }
             }
-        }
 
-        foreach (BlockPos pos in toBreak)
-        {
             world.BlockAccessor.BreakBlock(pos, player);
+            brokenCount++;
         }
 
-        return toBreak.Count;
+        return brokenCount;
     }
 
     private bool IsOre(Block block)
     {
-        return block.Code?.Path.StartsWith("ore-") == true;
+        return block.Attributes?["ore"].AsBool(false) == true
+        || block.Code?.Path.StartsWith("meteorite") == true;
     }
 
     private bool IsVeinMinerEnabled(ItemSlot slot)
